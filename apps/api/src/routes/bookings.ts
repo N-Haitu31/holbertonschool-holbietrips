@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { applyCoupon } from '../domain.js';
+import { applyCoupon, canReadBooking } from '../domain.js';
 import { recordAudit } from '../lib/audit.js';
 import { isUuid, readText, type RequestBody } from '../lib/request-values.js';
 import { newToken } from '../security.js';
@@ -39,8 +39,8 @@ export function registerBookingRoutes(app: FastifyInstance, context: RouteContex
     if (!result.rowCount) return reply.code(404).send({ error: 'Réservation introuvable' });
 
     const booking = result.rows[0];
-    if (booking.user_id !== request.authUser!.id) {
-      booking.itinerary_notes = `${booking.itinerary_notes} — ${flags.get('A01')}`;
+    if (!canReadBooking(request.authUser!, booking.user_id)) {
+      return reply.code(404).send({ error: 'Réservation introuvable' });
     }
     return { booking };
   });
