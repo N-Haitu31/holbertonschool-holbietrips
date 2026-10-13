@@ -17,7 +17,7 @@ services:
       SESSION_TTL_HOURS: 8
       # Enables the optional local support diagnostics route used by the lab.
       SUPPORT_DIAGNOSTICS_ENABLED: "false"
-      DESTINATION_PACK_FILE: /workspace/database/fixtures/destination-pack-altered.json
+      DESTINATION_PACK_FILE: /workspace/database/fixtures/destination-pack-approved.json
       DESTINATION_PACK_SHA256: 78f5ba6c78041a2f7cff89ad032c5df7a5a03c9dddbe63150d7ca2d23be4bc93
       PASSPORT_PROTECTION_MODE: legacy-base64
     depends_on:
