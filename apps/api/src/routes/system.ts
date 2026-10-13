@@ -10,7 +10,7 @@ export function registerSystemRoutes(
   app.get('/api/health', async () => ({ status: 'ok', service: 'holbietrips' }));
 
   if (!diagnosticsEnabled) return;
-  app.get('/api/support/diagnostics', { preHandler: context.requireUser }, async () => ({
+  app.get('/api/support/diagnostics', { preHandler: context.requireRole('support') }, async () => ({
     desk: 'HolbieTrips Support Debug Desk',
     status: 'open',
     intendedAudience: 'support',
