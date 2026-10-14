@@ -25,18 +25,15 @@ export function decryptSensitive(ciphertext: string, iv: string, tag: string, ke
 
 /** Applies the configured protection mode to a traveller document value. */
 export function protectPassport(value: string, keyHex: string, mode: string) {
-  if (mode === 'legacy-base64') {
-    return { ciphertext: Buffer.from(value, 'utf8').toString('base64'), iv: 'legacy-base64', tag: null };
-  }
+  if (mode !== 'aes-256-gcm') throw new Error('Mode de protection du passeport non pris en charge');
   return encryptSensitive(value, keyHex);
 }
 
-/** Restores a traveller document from either supported storage representation. */
 export function revealPassport(ciphertext: string, iv: string | null, tag: string | null, keyHex: string) {
-  if (iv === 'legacy-base64') return Buffer.from(ciphertext, 'base64').toString('utf8');
   if (!iv || !tag) throw new Error('Protection du passeport invalide');
   return decryptSensitive(ciphertext, iv, tag, keyHex);
 }
+
 
 export const paymentSignature = (payload: object, key: string) =>
   createHmac('sha256', key).update(JSON.stringify(payload)).digest('hex');

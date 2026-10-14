@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { recordAudit } from '../lib/audit.js';
 import { readText, type RequestBody } from '../lib/request-values.js';
-import { protectPassport, revealPassport, tokenDigest } from '../security.js';
+import { protectPassport, revealPassport } from '../security.js';
 import type { RouteContext } from './context.js';
 
 type ProfileRow = {
@@ -73,14 +73,5 @@ export function registerProfileRoutes(app: FastifyInstance, context: RouteContex
       passportChanged: Boolean(passportNumber)
     });
     return { ok: true };
-  });
-
-  app.post('/api/challenges/a04/claim', { preHandler: context.requireUser }, async (request, reply) => {
-    const passportNumber = readText((request.body as RequestBody).passportNumber, 80);
-    const expectedDigest = 'f66e364883b345b4cc5253ac8e4d88ab566699cc3a19be731391a8037b18ac90';
-    if (tokenDigest(passportNumber) !== expectedDigest) {
-      return reply.code(400).send({ error: 'Preuve de passeport invalide' });
-    }
-    return { flag: context.flags.get('A04') };
   });
 }

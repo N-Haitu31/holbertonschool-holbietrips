@@ -3,9 +3,9 @@ INSERT INTO users (id, email, password_hash, full_name, role) VALUES
 ('10000000-0000-4000-8000-000000000002', 'bruno.dupont@example.test', crypt('Voyage!Bruno2025', gen_salt('bf', 10)), 'Bruno Dupont', 'customer'),
 ('10000000-0000-4000-8000-000000000003', 'support@holbietrips.test', crypt('Support!Holbie2025', gen_salt('bf', 10)), 'Sam Support', 'support');
 
-INSERT INTO traveler_profiles (user_id, phone, birth_date, nationality, passport_ciphertext, passport_iv) VALUES
-('10000000-0000-4000-8000-000000000001', '+33 6 00 00 00 01', '1991-04-12', 'Française', NULL, NULL),
-('10000000-0000-4000-8000-000000000002', '+33 6 00 00 00 02', '1987-09-23', 'Française', 'RlItREVNTy1CUlVOTy04NzQy', 'legacy-base64');
+INSERT INTO traveler_profiles (user_id, phone, birth_date, nationality, passport_ciphertext, passport_iv, passport_tag) VALUES
+('10000000-0000-4000-8000-000000000001', '+33 6 00 00 00 01', '1991-04-12', 'Française', NULL, NULL, NULL),
+('10000000-0000-4000-8000-000000000002', '+33 6 00 00 00 02', '1987-09-23', 'Française', 'PZ0ZoceEIz7nY++BMxEHtvtX', 'btRusgTkRdNdEzpj', 'u1c0pE8Z2tdMKP4SyPRt0A==');
 
 INSERT INTO trips (id, slug, title, destination, description, departure_date, return_date, price_cents, seats_available, image_key, is_published) VALUES
 ('20000000-0000-4000-8000-000000000001', 'lisbonne-lumiere', 'Lisbonne en lumière', 'Lisbonne, Portugal', 'Tramways, azulejos et miradouros pendant cinq jours.', '2027-04-10', '2027-04-15', 64900, 18, 'lisbon', true),
