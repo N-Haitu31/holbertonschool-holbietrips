@@ -28,13 +28,20 @@ const opened: Array<Awaited<ReturnType<typeof buildApp>>> = [];
 afterEach(async () => { await Promise.all(opened.splice(0).map(app => app.close())); });
 
 describe('A06 — Coupon Carousel', () => {
-  it('characterizes the flaw: the same coupon can be stacked', async () => {
-    const fake = fakePool(); const app = await buildApp(fake.pool as unknown as Pool, { serveFrontend: false }); opened.push(app);
-    const response = await app.inject({ method: 'POST', url: '/api/bookings', headers: { authorization: 'Bearer alice' },
-      payload: { tripId: '20000000-0000-4000-8000-000000000001', travelers: 1, couponCode: 'BIENVENUE10,BIENVENUE10' } });
-    expect(response.statusCode).toBe(201);
-    expect(response.json().booking.total_cents).toBe(81000);
-    expect(response.json().booking.itinerary_notes).toMatch(/FLAG\{a06_[a-f0-9]{24}\}/);
+  it('rejects a stacked coupon payload before opening any database connection', async () => {
+    const fake = fakePool();
+    const app = await buildApp(fake.pool as unknown as Pool, { serveFrontend: false });
+    opened.push(app);
+
+    const response = await app.inject({
+      method: 'POST', url: '/api/bookings', headers: { authorization: 'Bearer alice' },
+      payload: { tripId: '20000000-0000-4000-8000-000000000001', travelers: 1, couponCode: 'BIENVENUE10,BIENVENUE10' }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).not.toContain('FLAG{');
+    expect(fake.pool.connect).not.toHaveBeenCalled();
+    expect(fake.client.query).not.toHaveBeenCalled();
   });
 
   it('preserves a single valid coupon', async () => {
