@@ -114,6 +114,7 @@ export function registerPaymentRoutes(app: FastifyInstance, context: RouteContex
     const status = readText(body.status, 20);
     const providerReference = readText(body.providerReference, 80);
     const cardLast4 = readText(body.cardLast4, 4);
+    const signature = readText(body.signature, 200);
 
     const validPayload = isUuid(bookingId)
       && Number.isInteger(amountCents)
@@ -122,18 +123,28 @@ export function registerPaymentRoutes(app: FastifyInstance, context: RouteContex
       && /^\d{4}$/.test(cardLast4);
     if (!validPayload) return reply.code(400).send({ error: 'Confirmation invalide' });
 
-    const bookingResult = await pool.query(
-      `SELECT id,total_cents FROM bookings
-       WHERE id=$1 AND total_cents=$2 AND status='pending'`,
-      [bookingId, amountCents]
-    );
-    if (!bookingResult.rowCount) {
-      return reply.code(404).send({ error: 'Réservation payable introuvable' });
+    const signedFields = { bookingId, amountCents, status, providerReference, cardLast4 };
+    if (!validSignature(signedFields, signature, settings.paymentKey)) {
+      await recordAudit(pool, null, 'payment.callback_rejected', 'booking', bookingId, {
+        reason: 'invalid-signature'
+      });
+      return reply.code(401).send({ error: 'Signature de confirmation invalide' });
     }
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const bookingResult = await client.query(
+        `SELECT id FROM bookings
+         WHERE id=$1 AND total_cents=$2 AND status='pending'
+         FOR UPDATE`,
+        [bookingId, amountCents]
+      );
+      if (!bookingResult.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Réservation payable introuvable' });
+      }
+
       await client.query(
         `INSERT INTO payments(booking_id,provider_reference,amount_cents,card_last4,status)
          VALUES($1,$2,$3,$4,'approved')
@@ -143,6 +154,9 @@ export function registerPaymentRoutes(app: FastifyInstance, context: RouteContex
         [bookingId, providerReference, amountCents, cardLast4]
       );
       await client.query(`UPDATE bookings SET status='confirmed' WHERE id=$1`, [bookingId]);
+      await recordAudit(client, null, 'payment.callback_approved', 'booking', bookingId, {
+        providerReference
+      });
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -150,6 +164,6 @@ export function registerPaymentRoutes(app: FastifyInstance, context: RouteContex
     } finally {
       client.release();
     }
-    return { status: 'confirmed', flag: context.flags.get('A08') };
+    return { status: 'confirmed' };
   });
 }
