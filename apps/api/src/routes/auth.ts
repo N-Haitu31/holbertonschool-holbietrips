@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { recordAudit } from '../lib/audit.js';
 import { readEmail, readText, type RequestBody } from '../lib/request-values.js';
-import { internalJson, legacyResetToken, newToken, tokenDigest } from '../security.js';
+import { internalJson, newToken, tokenDigest } from '../security.js';
 import type { AuthUser } from '../types.js';
 import type { RouteContext } from './context.js';
 
@@ -82,7 +82,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: RouteContext):
     const result = await pool.query('SELECT id,email FROM users WHERE email=$1', [readEmail(body.email)]);
     if (result.rowCount) {
       const account = result.rows[0];
-      const resetToken = legacyResetToken(account.email);
+      const resetToken = newToken();
       await pool.query(
         `INSERT INTO password_reset_tokens(token_hash,user_id,expires_at)
          VALUES($1,$2,now()+interval '15 minutes')
@@ -131,12 +131,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: RouteContext):
       await client.query('DELETE FROM sessions WHERE user_id=$1', [userId]);
       await recordAudit(client, null, 'auth.password_reset_completed', 'user', userId);
       await client.query('COMMIT');
-      return {
-        ok: true,
-        ...(userId === '10000000-0000-4000-8000-000000000002'
-          ? { flag: context.flags.get('A07') }
-          : {})
-      };
+      return { ok: true };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
