@@ -130,14 +130,41 @@ export function registerBookingRoutes(app: FastifyInstance, context: RouteContex
     const id = (request.params as RequestBody).id;
     if (!isUuid(id)) return reply.code(400).send({ error: 'Identifiant invalide' });
 
-    const result = await pool.query(
-      `UPDATE bookings SET status='cancelled'
-       WHERE id=$1 AND user_id=$2 AND status<>'cancelled'
-       RETURNING id,reference,status`,
-      [id, request.authUser!.id]
-    );
-    if (!result.rowCount) return reply.code(404).send({ error: 'Réservation annulable introuvable' });
-    return { booking: result.rows[0], flag: flags.get('A09') };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const bookingResult = await client.query(
+        `SELECT id,user_id,status,reference FROM bookings WHERE id=$1 FOR UPDATE`,
+        [id]
+      );
+
+      const row = bookingResult.rows[0];
+      let reason: string | null = null;
+      if (!row) reason = 'not-found';
+      else if (row.user_id !== request.authUser!.id) reason = 'not-owned';
+      else if (row.status === 'cancelled') reason = 'already-cancelled';
+
+      if (reason) {
+        await recordAudit(client, request.authUser, 'booking.cancel_denied', 'booking', id, { reason });
+        await client.query('COMMIT');
+        return reply.code(404).send({ error: 'Réservation annulable introuvable' });
+      }
+
+      const updated = await client.query(
+        `UPDATE bookings SET status='cancelled' WHERE id=$1 RETURNING id,reference,status`,
+        [id]
+      );
+      await recordAudit(client, request.authUser, 'booking.cancelled', 'booking', id, {
+        reference: updated.rows[0].reference
+      });
+      await client.query('COMMIT');
+      return { booking: updated.rows[0] };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 
   app.post('/api/bookings/:id/confirm', { preHandler: context.requireUser }, async (request, reply) => {
